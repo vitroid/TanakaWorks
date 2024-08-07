@@ -1,0 +1,9 @@
+1/
+3/
+*.mpg
+*.mp4
+*.ppm
+*.lock
+*.gif
+*.gro
+__pycache__/
