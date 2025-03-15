@@ -10,12 +10,75 @@ import numpy as np
 from scipy.interpolate import griddata
 
 
+def generate_contour_levels(data):
+    """
+    0 を含み、等間隔で小数点2桁目以下が 0 であるような等高線レベルを生成する。
+
+    Args:
+        data: z と w の値のリストまたは NumPy 配列。
+
+    Returns:
+        等高線レベルのリスト。
+    """
+
+    # 1. z と w の最小値と最大値を求める
+    min_val = np.min(data)
+    max_val = np.max(data)
+
+    # 2. 等高線の間隔を決定
+    # 適切な間隔を自動で決定するロジックを実装することも可能ですが、ここでは例として 0.1, 0.2, 1.0, 2.0 などの間隔を想定します。
+    # 最小値と最大値から適切な間隔を決定するロジックを組み込むとより汎用性が高まります。
+    # ここでは、最大値と最小値の差が1未満なら0.1, 10未満なら1, 100未満なら10, それ以上なら100の間隔とする例
+    diff = max_val - min_val
+    if diff < 1:
+        interval = 0.1
+    elif diff < 10:
+        interval = 1.0
+    elif diff < 100:
+        interval = 10.0
+    else:
+        interval = 100.0
+
+    # 3. 0 を含む等高線レベルを生成
+    levels = []
+    # 負の方向
+    current_level = 0.0
+    while current_level >= min_val:
+        levels.append(current_level)
+        current_level -= interval
+        if current_level < min_val:
+            levels.append(min_val)
+            break
+    levels.reverse()
+
+    # 正の方向
+    current_level = interval
+    while current_level <= max_val:
+        if current_level not in levels:
+            levels.append(current_level)
+        current_level += interval
+        if current_level > max_val:
+            if max_val not in levels:
+                levels.append(max_val)
+            break
+
+    # 0がなければ追加
+    if 0 not in levels:
+        levels.insert(0, 0)
+
+    # 重複を削除
+    levels = sorted(list(set(levels)))
+
+    return levels
+
+
 def plot_contour(filepath):
     """
     Reads data from a file, and plots two contour maps:
     - One for the 'z' values (hydrates in equilibrium with water).
     - One for the 'w' values (hydrates in equilibrium with guest fluid).
     Displays filled contours, contour lines, and elevation labels.
+    Adds hatching to the areas where z or w is exactly 0.
 
     Args:
         filepath: The path to the data file.
@@ -44,6 +107,10 @@ def plot_contour(filepath):
     Z = griddata((x, y), z, (X, Y), method="linear")
     W = griddata((x, y), w, (X, Y), method="linear")
 
+    # 等高線レベルを生成
+    levels_z = generate_contour_levels(Z)
+    levels_w = generate_contour_levels(W)
+
     # Plotting
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -56,6 +123,17 @@ def plot_contour(filepath):
     axes[0].set_ylabel("log(Pressure) (y)")
     fig.colorbar(contourf_z, ax=axes[0], label="z (Driving Force)")
 
+    # Hatching for z == 0
+    axes[0].contourf(
+        X,
+        Y,
+        Z,
+        levels=[-0.001, 0.001],
+        colors="none",
+        hatches=["///"],
+        extend="neither",
+    )
+
     # Contour plot for w
     contourf_w = axes[1].contourf(X, Y, W, cmap="viridis")
     contour_w = axes[1].contour(X, Y, W, colors="black")  # Contour lines
@@ -64,6 +142,17 @@ def plot_contour(filepath):
     axes[1].set_xlabel("Temperature (x)")
     axes[1].set_ylabel("log(Pressure) (y)")
     fig.colorbar(contourf_w, ax=axes[1], label="w (Driving Force)")
+
+    # Hatching for w == 0
+    axes[1].contourf(
+        X,
+        Y,
+        W,
+        levels=[-0.001, 0.001],
+        colors="none",
+        hatches=["///"],
+        extend="neither",
+    )
 
     plt.tight_layout()
     plt.suptitle("Hydrate Equilibrium", fontsize=16)
