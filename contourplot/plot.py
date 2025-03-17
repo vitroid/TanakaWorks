@@ -31,13 +31,13 @@ def generate_contour_levels(data):
     # ここでは、最大値と最小値の差が1未満なら0.1, 10未満なら1, 100未満なら10, それ以上なら100の間隔とする例
     diff = max_val - min_val
     if diff < 1:
-        interval = 0.1
+        interval = 0.01
     elif diff < 10:
-        interval = 1.0
+        interval = 0.1
     elif diff < 100:
-        interval = 10.0
+        interval = 1.0
     else:
-        interval = 100.0
+        interval = 10.0
 
     # 3. 0 を含む等高線レベルを生成
     levels = []
@@ -72,7 +72,7 @@ def generate_contour_levels(data):
     return levels
 
 
-def plot_contour(filepath):
+def plot_contour(filepath, suptitle=""):
     """
     Reads data from a file, and plots two contour maps:
     - One for the 'z' values (hydrates in equilibrium with water).
@@ -111,56 +111,51 @@ def plot_contour(filepath):
     levels_z = generate_contour_levels(Z)
     levels_w = generate_contour_levels(W)
 
+    # 正のレベルを削除
+    levels_z_filtered = [level for level in levels_z if level <= 0]
+    levels_w_filtered = [level for level in levels_w if level <= 0]
+
     # Plotting
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
     # Contour plot for z
-    contourf_z = axes[0].contourf(X, Y, Z, cmap="viridis")
-    contour_z = axes[0].contour(X, Y, Z, colors="black")  # Contour lines
-    axes[0].clabel(contour_z, inline=True, fontsize=8, fmt="%1.1f")  # Elevation labels
+    contourf_z = axes[0].contourf(X, Y, Z, levels=levels_z, cmap="viridis")
+    # 等高線の色を制御
+    colors_z = ["white" for level in levels_z_filtered]
+    contour_z = axes[0].contour(X, Y, Z, levels=levels_z_filtered, colors=colors_z)
+    # 等高線のラベルの色を制御
+    axes[0].clabel(contour_z, inline=True, fontsize=8, fmt="%1.1f")
     axes[0].set_title("Hydrate Equilibrium with Water (z)")
     axes[0].set_xlabel("Temperature (x)")
     axes[0].set_ylabel("log(Pressure) (y)")
     fig.colorbar(contourf_z, ax=axes[0], label="z (Driving Force)")
 
-    # Hatching for z == 0
-    axes[0].contourf(
-        X,
-        Y,
-        Z,
-        levels=[-0.001, 0.001],
-        colors="none",
-        hatches=["///"],
-        extend="neither",
-    )
+    # Set the x-axis limit for the z plot
+    axes[0].set_xlim(left=220)
 
     # Contour plot for w
-    contourf_w = axes[1].contourf(X, Y, W, cmap="viridis")
-    contour_w = axes[1].contour(X, Y, W, colors="black")  # Contour lines
-    axes[1].clabel(contour_w, inline=True, fontsize=8, fmt="%1.1f")  # Elevation labels
+    contourf_w = axes[1].contourf(X, Y, W, levels=levels_w, cmap="viridis")
+    # 等高線の色を制御
+    colors_w = ["white" for level in levels_w_filtered]
+    contour_w = axes[1].contour(X, Y, W, levels=levels_w_filtered, colors=colors_w)
+    axes[1].clabel(contour_w, inline=True, fontsize=8, fmt="%1.1f")
     axes[1].set_title("Hydrate Equilibrium with Guest Fluid (w)")
     axes[1].set_xlabel("Temperature (x)")
     axes[1].set_ylabel("log(Pressure) (y)")
     fig.colorbar(contourf_w, ax=axes[1], label="w (Driving Force)")
 
-    # Hatching for w == 0
-    axes[1].contourf(
-        X,
-        Y,
-        W,
-        levels=[-0.001, 0.001],
-        colors="none",
-        hatches=["///"],
-        extend="neither",
-    )
+    # Set the x-axis limit for the w plot
+    axes[1].set_xlim(left=220)
 
     plt.tight_layout()
-    plt.suptitle("Hydrate Equilibrium", fontsize=16)
-    plt.show()
+    # plt.suptitle("Hydrate Equilibrium", fontsize=16)
+    plt.suptitle(suptitle, fontsize=16)
+    # plt.show()
 
     # you can save the plot to a file.
-    # plt.savefig("contour_plots.png")
+    plt.savefig(filepath + ".pdf")
 
 
 # Call the function with the specified filename
-plot_contour("contour_ch4.d")
+plot_contour("contour_ch4.d", "Methane")
+plot_contour("contour_co2.d", "CO2")
